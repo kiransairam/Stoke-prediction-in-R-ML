@@ -1,0 +1,912 @@
+---
+title: "Stroke Prediction"
+author: "Kiran"
+date: '2022-12-01'
+output: html_notebook
+---
+
+
+```{R}
+library(dplyr)
+#library(DMwR)
+library(data.table)
+library(ggplot2)
+#library(tidyverse)
+library(gmodels)
+library(caret)
+library(class)
+library(randomForest)
+library(ROCR)
+library(gbm)
+library(e1071)
+library(keras)
+library(tfruns)
+
+
+
+```
+
+```{R}
+
+stock_dataset=read.csv('C:/Users/csc/Desktop/New folder/healthcare-dataset-stroke-data.csv',sep=",", header=TRUE, na.strings = c("", "N/A"))
+str(stock_dataset)
+colSums(is.na(stock_dataset))
+
+```
+
+```{R}
+summary(stock_dataset)
+
+```
+
+```{R}
+# stock_dataset= na.omit(stock_dataset)
+
+
+Mode <- function (x, na.rm) {
+    xtab <- table(x)
+    xmode <- names(which(xtab == max(xtab)))
+    if (length(xmode) > 1) xmode <- ">1 mode"
+    return(xmode)
+}
+
+for (var in 1:ncol(stock_dataset)) {
+    if (class(stock_dataset[,var])=="numeric") {
+        stock_dataset[is.na(stock_dataset[,var]),var] <- mean(stock_dataset[,var], na.rm = TRUE)
+    } else if (class(stock_dataset[,var]) %in% c("character", "factor")) {
+        stock_dataset[is.na(stock_dataset[,var]),var] <- Mode(stock_dataset[,var], na.rm = TRUE)
+    }
+}
+
+
+
+ #stock_dataset[is.na(stock_dataset[,var]),var] <- Mode(stock_dataset[,var], na.rm = TRUE)
+ 
+ colSums(is.na(stock_dataset))
+
+```
+
+
+```{R}
+colSums(is.na(stock_dataset))
+```
+
+
+```{R}
+
+str(stock_dataset)
+```
+
+
+
+
+```{R}
+colMeans(is.na(stock_dataset))
+
+```
+
+
+
+```{R}
+
+stock_dataset=stock_dataset[,-1]
+
+stock_dataset = as.data.frame(unclass(stock_dataset), stringsAsFactors = TRUE)
+
+stock_dataset$stroke[stock_dataset$stroke=="1"] <- "Yes"
+stock_dataset$stroke[stock_dataset$stroke=="0"] <- "No"
+
+stock_dataset$stroke = as.factor(stock_dataset$stroke)
+# stock_dataset$gender = as.factor(stock_dataset$gender)
+# stock_dataset$hypertension = as.factor(stock_dataset$hypertension)
+# stock_dataset$heart_disease = as.factor(stock_dataset$heart_disease)
+# stock_dataset$ever_married = as.factor(stock_dataset$ever_married)
+# stock_dataset$work_type = as.factor(stock_dataset$work_type)
+# stock_dataset$Residence_type = as.factor(stock_dataset$Residence_type)
+# stock_dataset$smoking_status = as.factor(stock_dataset$smoking_status)
+
+str(stock_dataset)
+
+```
+
+
+
+
+```{R}
+sum(is.na(stock_dataset))
+
+
+```
+
+
+```{R}
+df_1 =  stock_dataset[stock_dataset$stroke == "No",]
+df_2 =  stock_dataset[stock_dataset$stroke== "Yes",]
+
+```
+
+```{R}
+
+#install.packages("ggplot2")
+
+#library(ggcorrplot)
+# model.matrix(~0+., data=stock_dataset) %>% 
+#    cor(use="pairwise.complete.obs") %>% 
+#    ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+
+
+
+
+```
+
+
+
+
+```{R}
+
+#Gender
+
+
+library(gridExtra)
+#arrangeGrob(f1.1, f1.2, f1.3)
+
+
+
+#ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = gender), position = "dodge")
+
+graph1= ggplot(data=stock_dataset, aes(x=gender, y=factor(stroke), fill=gender)) +geom_bar(stat="identity") + ggtitle("Stroke = 1") + theme(plot.title=element_text(size=20,hjust = 0.5)) 
+graph2 = ggplot(data=stock_dataset, aes(x=gender, y=factor(stroke), fill=gender)) +geom_bar(stat="identity") + ggtitle("Stroke = 0") + theme(plot.title=element_text(size=20,hjust = 0.5)) 
+options(repr.plot.width=15, repr.plot.height=8)
+grid.arrange(graph1, graph2, ncol = 2, nrow = 1)
+test <- chisq.test(table(stock_dataset$gender, stock_dataset$stroke))
+test
+
+
+```
+
+We have a chi-squared value of 0.47259. Since the p-Value 0.7895 is not less than the significance level of 0.05, we cannot reject the null hypothesis and conclude that the two variables are in fact dependent.
+
+
+
+
+```{R}
+
+#Age
+
+boxplot(df_1$age,df_2$age,xlab="Stroke")
+t.test(stock_dataset$age~stock_dataset$stroke)
+
+```
+Here output of t-test shows that p-value is less than significance level and we can reject null hypothesis and accept alternate hpothesis which says that difference in age means for two groups with (no stroke)0 and (stroke)1 is not equal to 0.
+
+
+
+```{R}
+
+#HyperTension
+
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = hypertension), position = "dodge")
+
+
+
+
+
+#boxplot(df_1$hypertension,df_2$hypertension, xlab="Stroke")
+t.test(stock_dataset$hypertension~stock_dataset$stroke)
+
+#CrossTable(stock_dataset$stroke, stock_dataset$hypertension,chisq=TRUE)
+
+```
+You obtained a p-value of 1.978e-09, lower than the threshold of 0.05. You can reject the null (H0) hypothesis.true difference in means between group 0 and group 1 is not equal to 0
+
+
+
+
+```{R}
+
+#Heart Disease
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = heart_disease), position = "dodge")
+#boxplot(df_1$heart_disease,df_2$heart_disease, xlab="Stroke")
+t.test(stock_dataset$heart_disease~stock_dataset$stroke)
+
+
+#CrossTable(stock_dataset$stroke, stock_dataset$heart_disease,chisq=TRUE)
+
+```
+we obtained a p-value of 4.095e-08, lower than the threshold of 0.05. You can reject the null (H0) hypothesis.true difference in means between group 0 and group 1 is not equal to 0
+
+
+
+
+```{R}
+#Ever Married
+
+
+
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = ever_married), position = "dodge")
+
+
+test <- chisq.test(table(stock_dataset$ever_married, stock_dataset$stroke))
+test
+
+#CrossTable(stock_dataset$stroke, stock_dataset$heart_disease,chisq=TRUE)
+
+```
+
+We have a chi-squared value of 58.924. Since we get the p-Value is 1.639e-14 less than the significance level of 0.05, we can reject the null hypothesis and conclude that the two variables are in fact dependent.
+
+
+
+
+
+```{R}
+#Work Type
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = work_type), position = "dodge") 
+
+test <- chisq.test(table(stock_dataset$work_type, stock_dataset$stroke))
+test
+
+#CrossTable(stock_dataset$stroke, stock_dataset$ever_married,chisq=TRUE)
+
+```
+We have a chi-squared value of 49.164. Since we get the p-Value 5.398e-10 is less than the significance level of 0.05, we can reject the null hypothesis and conclude that the two variables are in fact dependent.
+
+
+
+```{R}
+
+#Residence Type
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = Residence_type), position = "dodge")
+
+test <- chisq.test(table(stock_dataset$Residence_type, stock_dataset$stroke))
+test
+
+#CrossTable(stock_dataset$stroke, stock_dataset$work_type,chisq=TRUE)
+
+```
+We have a chi-squared value of 1.0816. Since the p-Value 0.2983 is not less than the significance level of 0.05, we cannot reject the null hypothesis and conclude that the two variables are in fact dependent.
+
+
+
+
+
+```{R}
+
+
+
+boxplot(df_1$avg_glucose_level,df_2$avg_glucose_level, xlab="Stroke")
+t.test(stock_dataset$avg_glucose_level~stock_dataset$stroke)
+
+
+```
+
+we obtained a p-value of 2.401e-11, lower than the threshold of 0.05. You can reject the null (H0) hypothesis.true difference in means between group 0 and group 1 is not equal to 0
+
+
+
+```{R}
+
+boxplot(df_1$bmi,df_2$bmi, xlab="Stroke")
+t.test(stock_dataset$bmi~stock_dataset$stroke)
+```
+we obtained a p-value of 0.0003591, lower than the threshold of 0.05. You can reject the null (H0) hypothesis.true difference in means between group 0 and group 1 is not equal to 0
+
+
+
+```{R}
+
+ggplot(stock_dataset, aes(stroke, ..count..)) + geom_bar(aes(fill = smoking_status), position = "dodge")
+test <- chisq.test(table(stock_dataset$smoking_status, stock_dataset$stroke))
+test
+
+#CrossTable(stock_dataset$stroke, stock_dataset$Residence_type,chisq=TRUE)
+
+```
+
+We have a chi-squared value of 49.164. Since we get the p-Value 2.085e-06 is less than the significance level of 0.05, we can reject the null hypothesis and conclude that the two variables are in fact dependent.
+
+
+
+
+```{R}
+
+summary(stock_dataset)
+
+
+```
+
+
+
+```{R}
+str(stock_dataset)
+```
+
+
+
+
+*Data Preparation*
+
+
+
+```{R}
+# library(ggplot2)
+# library(knitr)
+# #install.packages("smotefamily")
+# install.packages("unbalanced")
+# library(unbalanced)
+#library(unbalanced)
+# suppressMessages(library(dplyr))
+# suppressMessages(library(unbalanced))
+```
+
+```{R}
+
+#install.packages("https://cran.r-project.org/src/contrib/Archive/DMwR/DMwR_0.4.1.tar.gz", repos=NULL, type="source")
+
+
+```
+
+
+
+```{R}
+set.seed(2)
+rows=sample(nrow(stock_dataset))
+stock_dataset=stock_dataset[rows, ]
+
+```
+
+
+```{R}
+unique(stock_dataset$stroke)
+unique(stock_dataset$gender)
+
+
+```
+
+```{R}
+
+sum(is.na(stock_dataset))
+
+```
+
+```{R}
+# 
+# sm = table(stock_dataset$stroke)
+# zero = sm[[1]]
+# one = sm[[2]]
+# total_rows = nrow(stock_dataset)
+# (zero/total_rows)*100
+# (one/total_rows)*100
+
+
+```
+
+```{R}
+
+
+#install.packages("devtools", force = TRUE)
+#library(devtools)
+#install_github("cran/DMwR", force = TRUE)
+#library(DMwR)
+
+
+# install.packages("bitops",repos="https://cran.r-project.org/bin/windows/contrib/3.3/bitops_1.0-6.zip",dependencies=TRUE,type="source")
+#  install.packages('abind')
+#  install.packages('zoo')
+#  install.packages('xts')
+#  install.packages('quantmod')
+#  install.packages('ROCR')
+# install.packages("DMwR")
+# library(DMwR)
+# 
+# install.packages("devtools", force = TRUE)
+# library("devtools")
+# install_github("cran/DMwR", force = TRUE)
+
+```
+
+```{R}
+
+# build_github_devtools()
+# 
+# #### Restart R before continuing ####
+# install.packages("devtools.zip", repos = NULL)
+# 
+# # Remove the package after installation
+# unlink("devtools.zip")
+# install_github("haghbinh/DMwR")
+```
+
+
+```{R}
+
+str(stock_dataset)
+```
+
+```{R}
+# stock_dataset$stroke[stock_dataset$stroke=="1"] <- "Yes"
+# 
+# stock_dataset$stroke[stock_dataset$stroke=="0"] <- "No"
+
+```
+
+```{R}
+
+str(stock_dataset)
+```
+
+
+```{R}
+
+# library(DMwR)
+# library(unbalanced)
+
+#install.packages("bitops")
+#install.packages("DMwR")
+
+library("DMwR")
+
+#smoted_data= SMOTE(stroke~., stock_dataset,  perc.over = 100, k=5)
+# 
+# sm = table(stock_dataset$stroke)
+# zero = sm[[1]]
+# one = sm[[2]]
+# total_rows = nrow(stock_dataset)
+# (zero/total_rows)*100
+# (one/total_rows)*100
+
+# stock_dataset1 <- as.data.frame(unclass(stock_dataset), stringsAsFactors = TRUE)
+# 
+# #stock_dataset1$stroke <- as.factor(stock_dataset1$stroke)
+# 
+# balancednewsData <- SMOTE(stroke ~ ., stock_dataset1, perc.over = 100, k=5)
+# 
+# table(stock_dataset1$stroke)
+# 
+# table(balancednewsData$stroke)
+
+# ctrl=trainControl(method="cv", number=10, classProbs = TRUE, summaryFunction = twoClassSummary,
+# sampling="smote")
+# knn_balanced_smote<-train(stroke~., data = stroke_train, method = "knn", verbose=FALSE, metric ="ROC", trControl= ctrl)
+```
+
+
+```{R}
+#str(balancednewsData)
+
+```
+
+
+```{R}
+
+# balancednewsData[balancednewsData$stroke == "1"] <- "Yes" 
+# balancednewsData[balancednewsData$stroke == "0"] <- "No"
+
+
+
+#d <- balancednewsData
+# d$stroke[d$stroke=="1"] <- "Yes"
+# 
+# d$stroke[d$stroke=="0"] <- "No"
+
+#levels(d$stroke) <- list("1" = "Yes", "0" = "No")
+
+
+#balancednewsData$stroke <- as.factor(balancednewsData$stroke)
+
+#table(d$stroke)
+
+```
+
+
+
+```{R}
+
+library(caret)
+stock_dataset$stroke <- as.factor(stock_dataset$stroke)
+
+inTrainf= caret::createDataPartition(stock_dataset$stroke, p=0.80, list= FALSE)
+stroke_train = stock_dataset[inTrainf,]
+stroke_test = stock_dataset[-inTrainf,]
+
+
+```
+
+#Decision Tree (Gradient Boosting Machine )
+
+```{R}
+
+t=table(stroke_train$stroke)
+#t=table(stroke_train$stroke)
+w_yes=sum(t)/(t["Yes"]*2)
+w_no=sum(t)/(t["No"]*2)
+w_yes
+w_no
+
+```
+
+```{R}
+class_weights= ifelse(stroke_train$stroke=="Yes", w_yes, w_no)
+str(class_weights)
+```
+```{R}
+ctrl=trainControl(method="cv", number=10, classProbs = TRUE, summaryFunction =twoClassSummary)
+m_weighted_gbm<-train(stroke ~ ., data = stroke_train, method = "gbm",weights=class_weights,verbose=FALSE, metric ="ROC", trControl= ctrl)
+
+```
+
+```{R}
+gbm_predictions_prob=predict(m_weighted_gbm, stroke_test, type="prob")
+gbm_predictions= prediction(gbm_predictions_prob$Yes,stroke_test$stroke)
+performance(gbm_predictions, measure = "auc")@y.values
+
+
+```
+
+```{R}
+
+gbm_predicted_labels = predict(m_weighted_gbm, stroke_test)
+confusionMatrix(gbm_predicted_labels, stroke_test$stroke, positive="Yes", mode="everything")
+
+
+```
+
+# ```{R}
+# #install.packages("crosstable")
+# #install.packages('libcoin', dependencies = T)
+# #install.packages('C50', dependencies = T)
+# library(gmodels)
+# library(dplyr)
+# library(C50)
+# heart_30 = C5.0(stroke_train[-11],stroke_train$stroke, trials = 30)
+# heart_30
+# 
+# ```
+#  
+# ```{R}
+# heart_30_pred = predict(heart_30, stroke_test)
+# CrossTable(stroke_test$stroke, heart_30_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
+#  
+# ```
+
+
+
+
+
+
+
+#knn
+
+
+```{R}
+
+
+
+ctrl=trainControl(method="cv", number=10, classProbs = TRUE, summaryFunction = twoClassSummary,
+sampling="smote")
+knn_balanced_smote<-train(stroke~., data = stroke_train, method = "knn",  metric ="ROC", trControl= ctrl)
+
+
+```
+
+```{R}
+ library(ROCR)
+knn_predictions_prob=predict(knn_balanced_smote, stroke_test, type="prob")
+knn_predictions= prediction(knn_predictions_prob$Yes,stroke_test$stroke)
+performance(knn_predictions, measure = "auc")@y.values
+
+```
+
+```{R}
+str(stroke_train)
+
+str(stroke_test)
+```
+
+```{R}
+#head(knn_predicted_labels)
+head(stroke_test$stroke)
+```
+
+```{R}
+
+knn_predicted_labels = predict(knn_balanced_smote, stroke_test)
+confusionMatrix(knn_predicted_labels, stroke_test$stroke, positive="Yes", mode="everything")
+
+```
+
+```{R}
+# library(mltools)
+# library(data.table)
+# 
+# heart_x = stroke_train[, -11]
+# heart_y = stroke_train['stroke']
+
+#heart_x = one_hot(as.data.table(heart_x))
+
+```
+
+```{R}
+# sum(is.na(heart_x))
+# sum(is.na(heart_y))
+# str(stroke_train)
+
+```
+
+
+
+#Logestic Regression
+
+#LASSO
+
+```{R}
+
+set.seed(1)
+
+library(caret)
+
+lasso_regression_f = train(stroke ~., data = stroke_train, method = "glmnet", preProc=c("knnImpute", "nzv"),metric ="ROC", na.action = na.pass,trControl = trainControl("cv", number = 10,classProbs = TRUE,sampling="smote"),tuneGrid = expand.grid(alpha = 1, lambda = 10^seq(-3, 3, length =100)))
+
+
+```
+
+
+```{R}
+ library(ROCR)
+lasso_predictions_prob=predict(lasso_regression_f, stroke_test, type="prob")
+lasso_predictions= prediction(lasso_predictions_prob$Yes,stroke_test$stroke)
+performance(lasso_predictions, measure = "auc")@y.values
+
+```
+
+```{R}
+
+#head(knn_predicted_labels)
+#head(stroke_test$stroke)
+lasso_predicted_labels = predict(lasso_regression_f, stroke_test)
+confusionMatrix(lasso_predicted_labels, stroke_test$stroke, positive="Yes", mode="everything")
+
+```
+
+#Ridge
+
+
+```{R}
+
+set.seed(1)
+
+ridge_regression_f = train(stroke ~., data = stroke_train, method = "glmnet", preProc= c("knnImpute", "nzv"),metric ="ROC", na.action=na.pass,trControl = trainControl("cv", number = 10,classProbs = TRUE,sampling="smote"),tuneGrid = expand.grid(alpha = 0, lambda = 10^seq(-3, 3, length =100)))
+
+```
+
+```{R}
+
+ library(ROCR)
+ridge_predictions_prob=predict(ridge_regression_f, stroke_test, type="prob")
+ridge_predictions= prediction(ridge_predictions_prob$Yes,stroke_test$stroke)
+performance(ridge_predictions, measure = "auc")@y.values
+
+```
+
+```{R}
+ridge_predicted_labels = predict(ridge_regression_f, stroke_test)
+confusionMatrix(ridge_predicted_labels, stroke_test$stroke, positive="Yes", mode="everything")
+
+```
+
+
+#Elasic Net
+
+
+```{R}
+set.seed(1)
+
+enet_f <- train(stroke ~., data = stroke_train, method = "glmnet", preProc= c("knnImpute", "nzv"),metric ="ROC", na.action=na.pass,trControl = trainControl("cv", number = 10,classProbs = TRUE,sampling="smote"),tuneGrid = expand.grid(alpha =seq(0,1, length=10), lambda = 10^seq(-3, 3, length = 100)))
+
+
+```
+
+```{R}
+
+
+library(ROCR)
+enet_predictions_prob=predict(enet_f, stroke_test, type="prob")
+enet_predictions= prediction(enet_predictions_prob$Yes,stroke_test$stroke)
+performance(enet_predictions, measure = "auc")@y.values
+
+
+```
+
+```{R}
+
+enet_predicted_labels = predict(enet_f, stroke_test)
+confusionMatrix(enet_predicted_labels, stroke_test$stroke, positive="Yes", mode="everything")
+
+
+```
+# Compare Lasso,Ridge,Elastic net
+
+```{R}
+
+compare=resamples(list(L=lasso_regression_f,R=ridge_regression_f,E=enet_f))
+compare
+summary(compare)
+
+```
+
+
+
+
+
+#Decision Tree
+
+
+#```{R}
+# #install.packages("crosstable")
+# # install.packages('libcoin', dependencies = T)
+# # install.packages('C50', dependencies = T)
+# library(gmodels)
+# library(dplyr)
+# library(C50)
+# heart_30 = C5.0(stroke_train[-11], as.factor(stroke_train$stroke), trials = 30)
+# heart_30
+# 
+# 
+# ```
+# 
+# ```{R}
+# heart_30_pred = predict(heart_30, stroke_test)
+# CrossTable(stroke_test$stroke, heart_30_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
+# 
+# ```
+
+
+
+
+
+
+
+#ANN Without class weights
+
+```{R}
+str(stroke_train)
+
+```
+
+
+```{R}
+numeric_cols= c("age","hypertension","heart_disease","avg_glucose_level","bmi")
+col_means_train<-attr(scale(stroke_test [,numeric_cols]), "scaled:center")
+col_stddevs_train<-attr( scale(stroke_train[,numeric_cols]), "scaled:scale")
+stroke_train[numeric_cols]= scale(stroke_train[numeric_cols])
+stroke_test[numeric_cols]<-scale(stroke_test[numeric_cols], center = col_means_train, scale =col_stddevs_train)
+
+
+
+```
+
+
+
+```{R}
+stroke_train$stroke = as.numeric(stroke_train$stroke)-1
+stroke_test$stroke = as.numeric(stroke_test$stroke)-1
+
+
+```
+
+
+```{R}
+
+library(mltools)
+library(data.table)
+stroke_train=as.matrix(one_hot(as.data.table(stroke_train)))
+stroke_test=as.matrix(one_hot(as.data.table(stroke_test)))
+
+
+```
+
+```{R}
+stroke_train_x= stroke_train[,-11]
+stroke_test_x= stroke_test[,-11]
+stroke_train_y= stroke_train[,11]
+stroke_test_y=stroke_test[,11]
+
+```
+
+```{R}
+
+model <-keras_model_sequential() %>%
+  layer_dense(units = 64, activation = "relu",
+  input_shape= dim(stroke_train_x)[2]) %>%
+  layer_dense(units = 64,activation="relu" )%>%
+  layer_dense(units = 1, activation="sigmoid")
+  model %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = "adam" , metrics="acc")
+  
+history <-model %>% fit(stroke_train_x, stroke_train_y, batch_size=50, epochs = 20,verbose=2, validation_data=list(stroke_test_x,stroke_test_y))  
+
+
+```
+
+
+
+```{R}
+predicted_probs= model%>% predict(stroke_test_x)
+ann_predictions= prediction(predicted_probs, stroke_test_y)
+performance(ann_predictions, measure = "auc")@y.values
+
+```
+
+```{R}
+predicted_labels = factor(ifelse(predicted_probs>0.5, "1", "0"))
+confusionMatrix(predicted_labels, as.factor(stroke_test_y), mode="everything", positive="1")
+
+```
+
+#ANN with Class weights
+
+
+```{r}
+model <-keras_model_sequential() %>%
+  layer_dense(units = 64, activation = "relu",
+  input_shape= dim(stroke_train_x)[2]) %>%
+  layer_dense(units = 64,activation="relu" )%>%
+  layer_dense(units = 1, activation="sigmoid")
+  model %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = "adam" , metrics="acc")
+  
+history <-model %>% fit(stroke_train_x, stroke_train_y,batch_size=50, epochs = 20,verbose=2, validation_data=list(stroke_test_x,stroke_test_y),class_weight=list("0"=w_no, "1"=w_yes))
+
+```
+When comparing with the ANN without class weights graph, the ANN with graph weights got more accurate.
+
+
+```{R}
+
+
+runs <- tuning_run("C:/Users/csc/Desktop/New folder/ML_Final_Tune.R",
+                   flags = list(
+                     nodes1 = c(64, 128),
+                     nodes2 = c(128,392),
+                     learning_rate = c(0.01, 0.05, 0.001, 0.0001),
+                     batch_size=c(100,200,500,1000),
+                     epochs=c(30,50,100),
+                     activation1=c("relu","sigmoid","tanh"),
+                     activation2 =c("sigmoid", "tanh", "relu")
+
+                   ),
+                   sample = 0.02
+)
+
+
+```
+
+```{R}
+predicted_probs= model%>% predict(stroke_test_x)
+ann_predictions= prediction(predicted_probs,stroke_test_y)
+performance(ann_predictions, measure = "auc")@y.values
+
+```
+
+
+```{R}
+predicted_labels = factor(ifelse(predicted_probs>0.5, "1", "0"))
+confusionMatrix(predicted_labels, as.factor(stroke_test_y), mode="everything", positive="1")
+```
+
+While comparing all the models i got the most accuracy "ANN With Class Weights" which is 0.9971
+the accuracy of GBM Decision tree is 0.714
+The Accuracy of KNN is 0.7757
+The Accuracy of LASSO is 0.952
+The Accuracy of Ridge is 0.932
+The Accuracy of Elastic Net is 0.923
+The Accracy of ANN is 0.996
+
+
